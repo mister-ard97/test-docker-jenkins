@@ -1,7 +1,7 @@
 # Panduan Lokal – Ubuntu 24.04
 
 Catatan pribadi untuk menjalankan semua bagian tes di laptop sendiri dan mengumpulkan bukti.
-**File ini jangan di-push** (perintah copy di langkah 1 memang tidak menyertakannya).
+**File ini jangan di-push.** Langkah 2 mengeluarkannya dari git.
 
 | Yang jalan | Port |
 |---|---|
@@ -38,40 +38,42 @@ sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin
 
 sudo usermod -aG docker $USER
-newgrp docker            # atau logout lalu login lagi
 ```
 
-Cek:
+Setelah itu **logout lalu login lagi** (atau restart laptop). `newgrp docker` hanya berlaku di terminal tempat perintah itu dijalankan, padahal Part II butuh 2 terminal.
+
+Cek di terminal baru:
 
 ```bash
+id | grep -o docker      # harus muncul: docker
 docker version
 docker run --rm hello-world
 ```
 
-## 2. Siapkan repo git
+## 2. Repo git
 
-Folder ini hasil download zip, bukan repo git. Jenkins mengambil kode dari GitHub, jadi semua kerja dilakukan di clone repo:
+Repo git-nya adalah folder ini sendiri, dengan remote `mister-ard97/test-docker-jenkins`. Commit `init` sudah ter-push.
 
 ```bash
-SRC=/home/finskor006/Documents/backup-kerjaan/Devops-technical-test-pt-journey--main
-git clone <URL-REPO-ANDA> ~/devops-test
-cd ~/devops-test
-
-git mv "docs/screenshots/part1-docker build .png" docs/screenshots/part1-docker-images.png
-git rm -q gitattributes
-cp "$SRC/README.md" README.md
-cp "$SRC/scripts/watch-downtime.sh" scripts/
-chmod +x scripts/*.sh
-
-git add -A
-git commit -m "docs: perbarui README dan tambah skrip pengukur downtime"
-git push
+cd ~/Documents/backup-kerjaan/Devops-technical-test-pt-journey--main
+git status
 ```
+
+File ini (`README-LOKAL.md`) ikut ter-commit di `init`. Keluarkan dari repo (file di laptop tetap ada):
+
+```bash
+git rm --cached README-LOKAL.md
+echo README-LOKAL.md >> .git/info/exclude
+git commit -m "chore: hapus catatan lokal dari repo"
+git push -u origin main
+```
+
+Karena `init` sudah ter-push, file ini tetap ada di riwayat commit tersebut, tapi tidak lagi muncul di versi terbaru repo.
 
 Kalau commit menolak karena identitas belum di-set:
 `git config --global user.name "Nama"` dan `git config --global user.email "email@contoh.com"`.
 
-**Semua langkah selanjutnya dijalankan dari `~/devops-test`.**
+**Semua langkah selanjutnya dijalankan dari folder ini.**
 
 ## 3. Part I – Build
 
@@ -97,6 +99,8 @@ ls -lh build/myapp-check    # ukuran binary
 
 ### 4.1 Jalankan container
 
+Kalau `docker ps` sudah menampilkan `devops-app`, langkah ini dilewati saja (`docker run` dengan nama yang sama akan error).
+
 ```bash
 docker run -d --name devops-app -p 8080:8080 --restart unless-stopped devops-app:1.0.0
 docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' devops-app   # unless-stopped
@@ -108,18 +112,20 @@ curl http://localhost:8080/                                         # version=1.
 **Terminal 1** – rekam respons selama swap:
 
 ```bash
-cd ~/devops-test
+cd ~/Documents/backup-kerjaan/Devops-technical-test-pt-journey--main && \
 bash scripts/watch-downtime.sh | tee docs/downtime.log
 ```
 
 **Terminal 2** – build binary baru dan swap:
 
 ```bash
-cd ~/devops-test
+cd ~/Documents/backup-kerjaan/Devops-technical-test-pt-journey--main && \
 CGO_ENABLED=0 GOOS=linux go build -trimpath \
-  -ldflags "-s -w -X main.version=1.0.1-hotfix" -o build/myapp .
+  -ldflags "-s -w -X main.version=1.0.1-hotfix" -o build/myapp . && \
 bash scripts/swap-binary.sh devops-app build/myapp 1.0.1-hotfix | tee docs/swap.log
 ```
+
+`&&` membuat perintah berikutnya tidak jalan kalau `cd` gagal, jadi file bukti di folder lain tidak tertimpa.
 
 Tunggu ±5 detik setelah skrip selesai, lalu tekan `Ctrl+C` di Terminal 1.
 Screenshot Terminal 2 → simpan menimpa `docs/screenshots/part2-hot-swap.png`.
@@ -199,12 +205,14 @@ Kalau repo GitHub **private**, tambahkan juga credential kedua: Username with pa
 |---|---|
 | Definition | Pipeline script from SCM |
 | SCM | Git |
-| Repository URL | URL repo Anda |
+| Repository URL | `https://github.com/mister-ard97/test-docker-jenkins.git` |
 | Credentials | `github-creds` (hanya kalau repo private) |
 | Branch Specifier | `*/main` |
 | Script Path | `jenkins/Jenkinsfile` |
 
 Save.
+
+Pakai URL **HTTPS**, bukan `git@github.com-mister-ard97:...`. Alias SSH itu hanya ada di `~/.ssh/config` laptop Anda, dan Jenkins di dalam container tidak mengenalnya.
 
 ### 6.5 Run pertama
 
@@ -267,24 +275,20 @@ Screenshot:
 
 ## 8. Update angka di README
 
-README sekarang masih berisi angka dari run lama di Windows. Ganti dengan hasil run Anda:
+README sekarang masih berisi angka dari run lama di Windows. Kalau bukti diambil ulang di Ubuntu, ganti dengan hasil run Anda:
 
 | Bagian README | Ganti dengan | Ambil dari |
 |---|---|---|
-| Environment | `Ubuntu 24.04`, `Docker Engine <versi>`, versi Jenkins | `docker version --format '{{.Server.Version}}'` dan `curl -sI http://localhost:8081/login \| grep -i x-jenkins` |
-| Quick start | URL clone repo Anda | |
+| Environment – OS | `Ubuntu 24.04, Docker Engine <versi>` | `docker version --format '{{.Server.Version}}'` |
+| Environment – Jenkins | versi Jenkins | `curl -sI http://localhost:8081/login \| grep -i x-jenkins` |
+| Environment – Registry | `Docker Hub, <username-docker-hub>/devops-app` | |
 | Part I – blok `docker images` | output baru | `docker images devops-app` |
-| Part I – penjelasan ukuran | ukuran binary baru | `ls -lh build/myapp-check` |
-| Part II – blok `swap.log` | isi baru | `cat docs/swap.log` |
-| Part II – potongan `downtime.log`, "±3 detik", "14 detik" | potongan dan angka baru | perintah `grep` di langkah 4.2 |
-| Part II – "Screenshot run lain (1.0.1-04c1687 → ...)" | jadi "Screenshot: ..." | |
-| Part III – `1.0.1-90175ba` | hash commit revert | `git rev-parse --short HEAD` |
-| Part III – "(build #10)" | nomor build test gagal | halaman job Jenkins |
+| Part I – "Kenapa ukurannya begitu" (~8.35 MB) | ukuran baru | `docker images devops-app`, `ls -lh build/myapp-check` |
+| Part II – baris Sebelum / Sesudah | isi baru | `cat docs/swap.log` |
+| Part II – "Downtime: ... (orde milidetik)" | angka hasil ukur (contoh: ±3 detik) | perintah `grep` di langkah 4.2 |
+| Part III – `version=1.0.1-<commit-hash>` | hash yang sebenarnya | `git rev-parse --short HEAD` |
 
-Penjelasan `CONTENT SIZE` / `DISK USAGE` di README khusus untuk Docker Desktop. Kalau di Ubuntu output `docker images` hanya punya kolom `SIZE`, ganti dua bullet itu dengan:
-"`SIZE` ≈ ukuran binary, karena image hanya berisi satu file."
-
-Kalimat "Docker Desktop (backend WSL2) di Windows, shell Git Bash" di Environment juga dihapus.
+README saat ini belum menautkan bukti baru (`docs/rollback.log`, `docs/pipeline-*.log`, `docs/screenshots/pipeline-stages-success.png`). Tambahkan link-nya kalau ingin reviewer melihatnya.
 
 ## 9. Push dan submit
 
@@ -308,7 +312,7 @@ Lalu:
 
 | Gejala | Penyebab | Solusi |
 |---|---|---|
-| `permission denied ... docker.sock` saat menjalankan `docker` di terminal | user belum aktif di grup `docker` | `newgrp docker` atau logout-login |
+| `permission denied ... docker.sock` saat menjalankan `docker` di terminal | terminal dibuka sebelum user aktif di grup `docker` | logout-login; `newgrp docker` hanya berlaku untuk satu terminal |
 | `bind: address already in use` | port 8080/8081 dipakai | `sudo ss -ltnp \| grep -E ':808[01]'` |
 | Console Jenkins: `docker: not found` | container Jenkins bukan dari `jenkins/Dockerfile` | ulangi langkah 6.1 |
 | Console Jenkins: `Cannot connect to the Docker daemon` | socket tidak di-mount | hapus container `jenkins`, jalankan ulang perintah 6.1 (data aman di volume `jenkins_home`) |

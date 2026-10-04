@@ -4,4 +4,4 @@ Sebelum : Hello, DevOps! version=1.0.0
 [3/4] Restart container
 [4/4] Health check: menunggu version=1.0.1-hotfix
 Sesudah : Hello, DevOps! version=1.0.1-hotfix
-Swap sampai sehat: 14265 ms
+Swap sampai sehat: 369 ms
