@@ -21,7 +21,7 @@ func TestHelloHandlerShowsVersion(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	helloHandler(rec, httptest.NewRequest(http.MethodGet, "/", nil))
-	want := "Hello, DevOps! version=1.2.3-test\n"
+	want := "Hello, SALAH! version=1.2.3-test\n"
 	if got := rec.Body.String(); got != want {
 		t.Errorf("body = %q, want %q", got, want)
 	}
