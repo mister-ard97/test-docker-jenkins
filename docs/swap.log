@@ -1,0 +1,7 @@
+Sebelum : Hello, DevOps! version=1.0.0
+[1/4] Backup binary lama ke build/myapp.prev
+[2/4] Copy binary baru ke devops-app:/app/myapp
+[3/4] Restart container
+[4/4] Health check: menunggu version=1.0.1-hotfix
+Sesudah : Hello, DevOps! version=1.0.1-hotfix
+Swap sampai sehat: 14265 ms
