@@ -199,18 +199,26 @@ Kalau repo GitHub **private**, tambahkan juga credential kedua: Username with pa
 
 ### 6.4 Buat job
 
-*New Item* → nama `devops-app-pipeline` → pilih **Pipeline** → OK. Di bagian **Pipeline**:
+*New Item* → nama `devops-app-pipeline` → pilih **Pipeline** → OK.
 
-| Field | Isi |
-|---|---|
-| Definition | Pipeline script from SCM |
-| SCM | Git |
-| Repository URL | `https://github.com/mister-ard97/test-docker-jenkins.git` |
-| Credentials | `github-creds` (hanya kalau repo private) |
-| Branch Specifier | `*/main` |
-| Script Path | `jenkins/Jenkinsfile` |
+Halaman **Configure** terbuka di bagian **General**. Bagian **General** dan **Triggers** tidak perlu diubah:
+`disableConcurrentBuilds()` dan parameter `PUSH_IMAGE` sudah diatur di Jenkinsfile, dan build dijalankan manual.
 
-Save.
+Klik **Pipeline** di menu kiri (atau scroll ke bawah), lalu isi:
+
+| Field | Default | Ubah jadi |
+|---|---|---|
+| Definition | Pipeline script | **Pipeline script from SCM** |
+| SCM | None | **Git** |
+| Repository URL | (kosong) | `https://github.com/mister-ard97/test-docker-jenkins.git` |
+| Credentials | - none - | `github-creds` (hanya kalau repo private) |
+| Branches to build → Branch Specifier | `*/master` | **`*/main`** |
+| Script Path | `Jenkinsfile` | **`jenkins/Jenkinsfile`** |
+| Lightweight checkout | dicentang | biarkan |
+
+Klik **Save**.
+
+Dua default yang sering terlewat adalah `*/master` dan `Jenkinsfile`. Kalau tidak diganti, build gagal dengan error `couldn't find any revision to build` atau `Unable to find Jenkinsfile`.
 
 Pakai URL **HTTPS**, bukan `git@github.com-mister-ard97:...`. Alias SSH itu hanya ada di `~/.ssh/config` laptop Anda, dan Jenkins di dalam container tidak mengenalnya.
 
@@ -317,7 +325,8 @@ Lalu:
 | Console Jenkins: `docker: not found` | container Jenkins bukan dari `jenkins/Dockerfile` | ulangi langkah 6.1 |
 | Console Jenkins: `Cannot connect to the Docker daemon` | socket tidak di-mount | hapus container `jenkins`, jalankan ulang perintah 6.1 (data aman di volume `jenkins_home`) |
 | Stage Deploy: `GAGAL ... tidak sehat` padahal `curl localhost:8080` dari host normal | Jenkins tidak bisa menghubungi `host.docker.internal` | cek `docker exec jenkins curl -s http://host.docker.internal:8080/`; kalau gagal, jalankan ulang container Jenkins dengan `--add-host` |
-| Stage Push: `unauthorized` | credential salah / token tanpa izin write | cek ID `dockerhub-creds` dan permission token |
+| Stage Push: `unauthorized` | credential salah | cek ID `dockerhub-creds`, username, dan token |
+| Stage Push: `Login Succeeded` lalu `access token has insufficient scopes` | token Docker Hub hanya **Read-only** | buat token baru dengan permission **Read & Write**, lalu update password di credential `dockerhub-creds` |
 | Tidak punya akun Docker Hub | | **Build with Parameters** → hilangkan centang `PUSH_IMAGE` (build pertama akan gagal di Push, itu wajar) |
 | Checkout: `Authentication failed` | repo private | tambahkan `github-creds` di konfigurasi job |
 
